@@ -2,11 +2,11 @@ import discord
 import discord.ext.commands
 import discord.ext.tasks
 import os
+import json
 import public_ip as ip
 
 from typing import *
 from dotenv import load_dotenv
-from abc import ABC, abstractmethod
 
 # fetching and printing public ip adress
 print("Public ip:", ip.get())
@@ -16,6 +16,7 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN") or "0"
 GUILD = os.getenv("DISCORD_GUILD_ID") or "0"
 CHANNEL = os.getenv("DISCORD_CONSOLE_CHANNEL_ID") or "0"
+SUPER_USERS = json.loads(os.getenv("DISCORD_SUPER_USERS") or "[]")
 
 if "0" in [TOKEN, GUILD, CHANNEL]:
     raise EnvironmentError("One or many environment variable(s) missing!")
@@ -25,23 +26,23 @@ intents.message_content = True
 intents.members = True
 
 
-class ConnectionInterface(ABC):
-    @abstractmethod
-    def recv(*args, **kwargs) -> str:
+class ConnectionInterface:
+    def recv(self, *args, **kwargs) -> str:
+        return ""
+
+    def send(self, *args: str, **kwargs) -> None:
         pass
 
-    @abstractmethod
-    def send(*args, **kwargs):
+    def poll(self, *args, **kwargs):
         pass
 
-    @abstractmethod
-    def poll(*args, **kwargs):
+    def close(self, *args, **kwargs):
         pass
 
 
 class Bot(discord.ext.commands.Bot):
     def __init__(self, *args, **kwargs):
-        self.controller_connection = ConnectionInterface
+        self.controller_connection = ConnectionInterface()
         super().__init__(*args, **kwargs)
 
     def set_connection(self, controller_connection):
@@ -59,6 +60,8 @@ def startBot(controller_connection):
     if TOKEN != None:
         bot.set_connection(controller_connection=controller_connection)
         bot.run(TOKEN)
+        controller_connection.close()
+        exit(0)
     else:
         print("Could not connect to Discord! TOKEN for Discord bot was None!")
 
@@ -88,6 +91,10 @@ async def loop():
             except Exception as e:
                 await konsol.send("Something tried to send:\n" + str(e))
 
+        if com.startswith("dc:"):
+            if com[3:] == "stop":
+                await bot.close()
+
 
 @bot.event
 async def on_ready():
@@ -104,13 +111,8 @@ async def on_ready():
     ][0]
 
     await bot.tree.sync(guild=discord.Object(id=GUILD))
-    await konsol.send("Went Online again!")
+    await konsol.send("Connected to Discord")
     loop.start()
-
-
-@bot.command()
-async def ping(ctx):
-    await ctx.channel.send("Pong!")
 
 
 @bot.event
@@ -122,9 +124,20 @@ async def on_message(msg):
     if int(msg.channel.id) == int(CHANNEL):
         bot.get_connection().send("mc:" + msg.content)
 
-    await bot.process_commands(msg)
+    await bot.process_commands(msg)  # Onödig För eventuella icke "/kommandon"
 
 
+# Ping
+@bot.tree.command(
+    name="ping",
+    description='Responds "Pong!"',
+    guild=discord.Object(GUILD),
+)
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message("Pong!", ephemeral=True)
+
+
+# IP
 @bot.tree.command(
     name="ip",
     description="Fetch the current public ip adress for the minecraft server",
@@ -134,6 +147,32 @@ async def get_ip(interaction: discord.Interaction):
     await interaction.response.send_message(
         f"The current ip adress should be: **{ip.get()}**", ephemeral=False
     )
+
+
+# Restart
+@bot.tree.command(
+    name="restart",
+    description="Will restart the actuall server computer!",
+    guild=discord.Object(GUILD),
+)
+async def restart_server(interaction: discord.Interaction):
+    if interaction.user.id in SUPER_USERS:
+        await interaction.response.send_message(f"Restarting server...", ephemeral=True)
+        bot.get_connection().send("srv:restart")
+        # pass
+
+    else:
+        await interaction.response.send_message(
+            f"You do not have permisson to use this command.", ephemeral=True
+        )
+        # Warnings
+        for usr_id in SUPER_USERS:
+            if user := bot.get_user(usr_id):
+                await user.send(
+                    f"Warning: `{interaction.user.name}` tried to restart the server"
+                )
+
+    # await interaction.response.send_message(f"Test", ephemeral=True)
 
 
 if __name__ == "__main__":

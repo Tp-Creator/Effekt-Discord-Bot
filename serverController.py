@@ -33,7 +33,7 @@ def validSizes(args):
 sizes = sys.argv[1:] if validSizes(sys.argv[1:]) else ["1024M", "4G"]
 
 minecraft_dir = "/home/ckserver/effekt/mcsrv"
-executable = f"java -Xms{sizes[0]} -Xmx{sizes[1]} -jar server.jar --nogui".split()
+executable = f"sudo -u ckserver java -Xms{sizes[0]} -Xmx{sizes[1]} -jar server.jar --nogui".split()
 
 
 def server_command(cmd):
@@ -47,6 +47,11 @@ def server_command(cmd):
         print("Couldn't send command to subprocess!")
 
 
+def console(*msg):
+    print(*msg)
+    discord_connection.send("send:" + " ".join(msg))
+
+
 content = ""
 previousContent = ""
 
@@ -57,30 +62,40 @@ print("Starting server...")
 time.sleep(2)
 
 
-# def exit_handler():
-#     global smd
-#     smd.shm.close()
-#     smd.shm.unlink()
-#     del smd
-
-
-# atexit.register(exit_handler)
-
 while True:
     # Checking for commands from Discord
     if discord_connection.poll(timeout=0.2):
         command = discord_connection.recv().lower()
         # Commands to server
-        if mcP.poll() == None and command.startswith("mc:"):
-            server_command(command[3:])
-            # if command == "mc:stop":
+        if command.startswith("mc:"):
+            if mcP.poll() == None:
+                server_command(command[3:])
+                # if command == "mc:stop": fake mc
 
-        # Start server
-        elif command == "mc:start":
-            mcP = subprocess.Popen(executable, stdin=subprocess.PIPE)
-            previousContent = ""
-            time.sleep(2)
+            # Start server
+            elif command == "mc:start":
+                mcP = subprocess.Popen(executable, stdin=subprocess.PIPE)
+                previousContent = ""
+                time.sleep(2)
 
+        elif command.startswith("srv:"):
+            match (command[4:]):
+                case "restart":
+                    console("Restarting server...")
+
+                    if mcP.poll() == None:
+                        console("Stopping Minecraft")
+                        server_command("stop")
+                        while mcP.poll() == None:
+                            pass
+
+                    console("Disconnecting from Discord")
+                    discord_connection.send("dc:stop")
+                    while discord_bot.is_alive():
+                        pass
+
+                    # os.system("sudo reboot")
+                    subprocess.run("sudo reboot", shell=True)
         # if standbyP.poll()...:
 
     time.sleep(1)
