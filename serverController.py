@@ -1,32 +1,22 @@
 import os
 import time
 import subprocess
-import datetime
 import sys
-import atexit
 
-from multiprocessing import Process, Queue, Pipe
+from multiprocessing import Process, Pipe
+
 import bot
 
 # Start bot
+discord_connection, child_connection = Pipe()
 
-parent_conn, child_conn = Pipe()
-
-child_conn.poll
-
-effBot = Process(target=bot.startBot, args=(child_conn,))
-effBot.start()
-# print("\n" * 2)
-# print(parent_conn.recv())
-# print("\n" * 2)
-
-parent_conn.send("hej")
-
-# from shared_memory_dict import SharedMemoryDict
-
-# smd = SharedMemoryDict(name="config", size=1000000)
+discord_bot = Process(target=bot.startBot, args=(child_connection,))
+discord_bot.start()
 
 
+# Makes it possible to write
+# >>> python3 serverController.py 1B 2G   # will do between 1 byte and 2 gigabytes of ram
+# to run server with custom memory configuration
 def validSizes(args):
     if len(args) < 2:
         return False
@@ -40,9 +30,6 @@ def validSizes(args):
     return False
 
 
-# Makes it possible to write
-# >>> python3 serverController.py 1B 2G   # will do between 1 byte and 2 gigabytes of ram
-# to run server with custom memory configuration
 sizes = sys.argv[1:] if validSizes(sys.argv[1:]) else ["1024M", "4G"]
 
 minecraft_dir = "/home/ckserver/effekt/mcsrv"
@@ -81,8 +68,8 @@ time.sleep(2)
 
 while True:
     # Checking for commands from Discord
-    if parent_conn.poll(timeout=0.2):
-        command = parent_conn.recv().lower()
+    if discord_connection.poll(timeout=0.2):
+        command = discord_connection.recv().lower()
         # Commands to server
         if mcP.poll() == None and command.startswith("mc:"):
             server_command(command[3:])
@@ -96,14 +83,16 @@ while True:
 
         # if standbyP.poll()...:
 
-    time.sleep(0.1)
+    time.sleep(1)
 
     with open("./logs/latest.log", "r") as log:
         content = log.read()
         if previousContent in content:
             content = content.replace(previousContent, "")
+        else:
+            previousContent = ""
 
         if content != "":
             # Send messages from Minecraft server output to discord child process
-            parent_conn.send("send:" + content)
+            discord_connection.send("send:" + content)
             previousContent += content
