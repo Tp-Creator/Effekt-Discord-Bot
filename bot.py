@@ -3,6 +3,7 @@ import discord.ext.commands
 import discord.ext.tasks
 import os
 import json
+import datetime
 import public_ip as ip
 
 from typing import *
@@ -74,22 +75,47 @@ async def loop():
     if bot.get_connection().poll(timeout=0.2):
         com = bot.get_connection().recv()
 
-        if com.startswith("send:"):
+        if com.startswith("konsol:") or com.startswith("log:"):
+            is_log = int(com.startswith("log:"))
             try:
-                # Split messages into chunks of 2000 max to send them more easily
-                if len(com[5:]) > 2000:
-                    msg = com[5:]
-                    while len(msg) > 2000:
-                        splitPoint = msg[:2000].rfind("\n")
+                begining = com.find(":") + 1
+                # Split messages into chunks of 1950 max to send them more easily
+                if len(com[begining:]) > 1950:
+                    msg = com[begining:]
+                    while len(msg) > 1950:
+                        splitPoint = msg[:1950].rfind("\n")
                         if splitPoint == -1:
-                            splitPoint = 2000
-                        await konsol.send(msg[:splitPoint])
+                            splitPoint = 1950
+                        await konsol.send(
+                            "```" * is_log + msg[:splitPoint] + "```" * is_log
+                        )
                         msg = msg[splitPoint:]
-                    await konsol.send(msg)
+                    await konsol.send("```" * is_log + msg + "```" * is_log)
                 else:
-                    await konsol.send(com[5:])
+                    await konsol.send("```" * is_log + com[begining:] + "```" * is_log)
             except Exception as e:
                 await konsol.send("Something tried to send:\n" + str(e))
+
+        # send in specific channel
+        if com.startswith("chan:"):
+            subcoms = com.split(":")
+            if subcoms[1].isnumeric():
+                data = json.loads(":".join(subcoms[2:]))
+                data["Joelias06"] = {"joined": datetime.datetime.now().timestamp() - 30}
+                if len(data) > 0:
+                    print(data)
+                    data = dict(
+                        sorted(data.items(), key=lambda item: item[1]["joined"])
+                    )
+                    print(data)
+                    msg = "Current players online:\n"
+                    for user in data:
+                        if data[user]["joined"] != False:
+                            msg += f"`{str(datetime.datetime.now()-datetime.datetime.fromtimestamp(data[user]['joined']))[:-7]} - {user}`\n"
+                else:
+                    msg = "There are currently no players online"
+
+                await bot.get_channel(int(subcoms[1])).send(msg)
 
         if com.startswith("dc:"):
             if com[3:] == "stop":
@@ -121,7 +147,7 @@ async def on_message(msg):
     if msg.author == bot.user:
         return
 
-    if int(msg.channel.id) == int(CHANNEL):
+    if int(msg.channel.id) == int(CHANNEL) and msg.user.id in SUPER_USERS:
         bot.get_connection().send("mc:" + msg.content)
 
     await bot.process_commands(msg)  # Onödig För eventuella icke "/kommandon"
@@ -147,6 +173,17 @@ async def get_ip(interaction: discord.Interaction):
     await interaction.response.send_message(
         f"The current ip adress should be: **{ip.get()}**", ephemeral=False
     )
+
+
+# Online
+@bot.tree.command(
+    name="online",
+    description="Sends a list of all players that are online",
+    guild=discord.Object(GUILD),
+)
+async def online_list(interaction: discord.Interaction):
+    bot.get_connection().send(f"ctrl:online,{interaction.channel_id}")
+    await interaction.response.send_message(f"Processing...", ephemeral=False)
 
 
 # Restart
