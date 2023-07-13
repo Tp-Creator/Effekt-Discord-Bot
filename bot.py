@@ -147,7 +147,7 @@ async def on_message(msg):
     if msg.author == bot.user:
         return
 
-    if int(msg.channel.id) == int(CHANNEL) and msg.user.id in SUPER_USERS:
+    if int(msg.channel.id) == int(CHANNEL) and msg.author.id in SUPER_USERS:
         bot.get_connection().send("mc:" + msg.content)
 
     await bot.process_commands(msg)  # Onödig För eventuella icke "/kommandon"
