@@ -36,6 +36,15 @@ class SocketServer:
         self.player_online = player_online
         self.protocol = protocol
 
+    # Joel
+    def set_connection(self, controller_connection):
+        self.controller_connection = controller_connection
+
+    def get_connection(self):
+        return self.controller_connection
+
+    ##
+
     def on_new_client(self, client_socket, addr):
         data = client_socket.recv(1024)
         client_ip = addr[0]
@@ -128,7 +137,8 @@ class SocketServer:
                 bytearray.append(long)
                 client_socket.sendall(bytearray)
                 self.logger.info(
-                    "[%s:%d] Responded with pong packet." % (client_ip, addr[1])
+                    "[%s:%d] Responded with pong packet." % (
+                        client_ip, addr[1])
                 )
             else:
                 self.logger.warning(
@@ -137,7 +147,8 @@ class SocketServer:
                 )
         except (TypeError, IndexError):
             self.logger.warning(
-                "[%s:%s] Received invalid data (%s)" % (client_ip, addr[1], data)
+                "[%s:%s] Received invalid data (%s)" % (
+                    client_ip, addr[1], data)
             )
             return
 
@@ -150,7 +161,7 @@ class SocketServer:
         client_socket.sendall(length)
         client_socket.sendall(response_array)
 
-    def start(self):
+    def start(self, parent_connection):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.ip, self.port))
         self.sock.settimeout(5)
@@ -159,7 +170,10 @@ class SocketServer:
             "Server started on %s:%s! Waiting for incoming connections..."
             % (self.ip, self.port)
         )
-        while 1:
+        # Joel
+        self.set_connection(parent_connection)
+        while not self.get_connection().poll(timeout=0.1):
+            # while 1:
             try:
                 (client, address) = self.sock.accept()
             except socket.timeout:
@@ -173,6 +187,12 @@ class SocketServer:
                     address,
                 ),
             ).start()
+
+        # Joel
+        self.logger.info("Shutting down server...")
+        self.close()
+        self.logger.info("Done.")
+        exit(0)
 
     def close(self):
         self.sock.close()

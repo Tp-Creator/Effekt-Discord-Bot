@@ -9,6 +9,10 @@ import datetime
 
 from socket_server import SocketServer
 
+# from Joel
+from multiprocessing import Process, Pipe
+
+
 server = None
 
 
@@ -71,7 +75,8 @@ def main():
         else:
             with open(configuration["server_icon"], "rb") as image:
                 server_icon = (
-                    "data:image/png;base64," + base64.b64encode(image.read()).decode()
+                    "data:image/png;base64," +
+                    base64.b64encode(image.read()).decode()
                 )
         try:
             global server
@@ -90,7 +95,21 @@ def main():
                 player_online,
                 protocol,
             )
-            server.start()
+            # server.start()
+
+            # Joel
+            parent_conn, child_connection = Pipe()
+            server_process = Process(
+                target=server.start, args=(child_connection,))
+            server_process.start()
+
+            input()
+            parent_conn.send("Stop!")
+            while server_process.is_alive():
+                pass
+            exit(0)
+            ###
+
         except KeyboardInterrupt:
             logger.info("Shutting down server...")
             server.close()
@@ -108,7 +127,8 @@ def main():
         configuration["motd"]["1"] = "§4Maintenance!"
         configuration["motd"]["2"] = "§aCheck example.com for more information!"
         configuration["version_text"] = "§4Maintenance"
-        configuration["kick_message"] = ["§bSorry", "", "§aThis server is offline!"]
+        configuration["kick_message"] = [
+            "§bSorry", "", "§aThis server is offline!"]
         configuration["server_icon"] = "server_icon.png"
         configuration["samples"] = ["§bexample.com", "", "§4Maintenance"]
         configuration["show_ip_if_hostname_available"] = True
@@ -116,7 +136,8 @@ def main():
         configuration["player_online"] = 0
 
         with open("config.json", "w") as file:
-            json.dump(configuration, file, sort_keys=True, indent=4, ensure_ascii=False)
+            json.dump(configuration, file, sort_keys=True,
+                      indent=4, ensure_ascii=False)
         logger.info("Please adjust the settings in the config.json!")
         exit(1)
 

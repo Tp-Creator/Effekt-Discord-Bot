@@ -6,6 +6,7 @@ import sys
 import datetime
 import re
 import json
+import signal
 
 from multiprocessing import Process, Pipe
 
@@ -18,7 +19,7 @@ discord_bot = Process(target=bot.startBot, args=(child_connection,))
 discord_bot.start()
 
 
-### to not get error msgs in vs code
+# to not get error msgs in vs code
 class DummyPipe:
     def write(self, msg: bytes) -> None:
         pass
@@ -84,7 +85,7 @@ def validSizes(args):
     return False
 
 
-sizes = sys.argv[1:] if validSizes(sys.argv[1:]) else ["1024M", "4G"]
+sizes = sys.argv[1:] if validSizes(sys.argv[1:]) else ["2048M", "6G"]
 
 minecraft_dir = "/home/ckserver/effekt/mcsrv"
 minecraft_executable = (
@@ -137,9 +138,15 @@ def start():
     zero_player_timer = datetime.datetime.now()
     if fake_mc_process.poll() == None:
         console("Stopping standbyMC")
-        fake_mc_process.kill()
+        # fake_mc_process.terminate()
+        # fake_mc_process.kill()
+        command = bytes("stop\n", "utf-8")
+        fake_mc_process.stdin.write(command)
+        fake_mc_process.stdin.flush()
+
         while fake_mc_process.poll() == None:
             pass
+        time.sleep(2)
     console("Starting Minecraft...")
     mc_process = start_process(minecraft_executable, minecraft_dir)
     return mc_process
@@ -148,6 +155,8 @@ def start():
 # Variabler
 online_players = {}
 zero_player_timer = -1
+started_time = datetime.datetime.now()
+mc_standby_timeout = 60 * 10
 
 # starting processes
 fake_mc_process = start_process(fake_executable, fake_dir)
@@ -161,6 +170,7 @@ mc_log_reader.read()
 
 
 console("Starting standbyMC...")
+print("Online since", started_time)
 time.sleep(2)
 
 
@@ -193,11 +203,26 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                     zero_player_timer = datetime.datetime.now()
             elif (
                 datetime.datetime.now() - zero_player_timer
-            ).total_seconds() > 60 * 10:
-                console("Turning of Minecraft since nobody was online for 10 minutes.")
+            ).total_seconds() > mc_standby_timeout:
+                console(
+                    "Turning of Minecraft since nobody was online for 10 minutes.")
                 # fake_mc_process = stop()
                 future_stop = executor.submit(stop)
                 waiting_stop = True
+
+        # Shouldn't happen unless one of the dies never happen that both processes are dead
+        if (
+            mc_process.poll() != None
+            and fake_mc_process.poll() != None
+            and not waiting_start
+            and not waiting_stop
+        ):
+            console(
+                "Both the Minecraft server and the standby server are off!\nStarting standbyMC..."
+            )
+            future_stop = executor.submit(stop)
+            waiting_stop = True
+            console(str(fake_mc_process.poll()))
 
         # Checking for commands from Discord
         if discord_connection.poll(timeout=0.2):
@@ -210,6 +235,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                         # fake_mc_process = stop()
                         future_stop = executor.submit(stop)
                         waiting_stop = True
+                        online_players = {}
 
                 # Start server
                 elif command == "mc:start":
@@ -222,42 +248,80 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                     # fake mc commands goes here
                     pass
 
-                # Should never happen that both processes are dead
-                else:
-                    console(
-                        "Both the Minecraft server and the standby server are off!\nStarting standby..."
-                    )
-
             elif command.startswith("srv:"):
-                match (command[4:]):
-                    case "restart":
-                        console("Restarting server...")
+                # match (command[4:]):
+                if command[4:].startswith("status"):
+                    command = command.split(",")
 
-                        if mc_process.poll() == None:
-                            console("Stopping Minecraft")
-                            server_command("stop")
-                            while mc_process.poll() == None:
-                                pass
+                    # Header
+                    msg = f"Status:\n"
 
-                        if fake_mc_process.poll() == None:
-                            console("Stopping standbyMC")
-                            fake_mc_process.kill()
-                            while fake_mc_process.poll() == None:
-                                pass
+                    # MC status
+                    if mc_process.poll() == None:
+                        # 1 or more players online
+                        if zero_player_timer == -1:
+                            amount_online = 0
+                            for player in online_players:
+                                if online_players[player]["joined"] != False:
+                                    amount_online += 1
+                            msg += f"```Minecraft: {mc_process.poll() == None} - {amount_online} player(s) online\n"
+                        # No players online
+                        else:
+                            msg += f"```Minecraft: {mc_process.poll() == None} - {round(mc_standby_timeout - (datetime.datetime.now() - zero_player_timer).total_seconds())}s until standby\n"
+                    else:
+                        msg += f"```Minecraft: {mc_process.poll() == None}\n"
 
-                        console("Disconnecting from Discord")
-                        discord_connection.send("dc:stop")
-                        while discord_bot.is_alive():
+                    # Fake MC status
+                    msg += f"StandbyMC: {fake_mc_process.poll() == None}\n"
+
+                    # When this program started the last time
+                    msg += f"\nProgram start: {started_time.strftime('%Y-%m-%d, %H:%M:%S')}```"
+
+                    discord_connection.send(f"chan,{command[1]}:" + msg)
+
+                elif command[4:] == "restart":
+                    console("Restarting server...")
+
+                    if mc_process.poll() == None:
+                        console("Stopping Minecraft")
+                        server_command("stop")
+                        while mc_process.poll() == None:
                             pass
 
-                        # os.system("sudo reboot")
-                        subprocess.run("sudo reboot", shell=True)
+                    if fake_mc_process.poll() == None:
+                        console("Stopping standbyMC")
+                        fake_mc_process.kill()
+                        while fake_mc_process.poll() == None:
+                            pass
+
+                    console("Disconnecting from Discord")
+                    discord_connection.send("dc:stop")
+                    while discord_bot.is_alive():
+                        pass
+
+                    # os.system("sudo reboot")
+                    subprocess.run("sudo reboot", shell=True)
 
             elif command.startswith("ctrl:"):
-                if command[5:].startswith("online,"):
-                    discord_connection.send(
-                        f"chan:{command[12:]}:{json.dumps(online_players)}"
+                if command[5:].startswith("online"):
+                    command = command.split(",")
+
+                    msg = ""
+                    players = dict(
+                        sorted(
+                            online_players.items(), key=lambda item: item[1]["joined"]
+                        )
                     )
+                    for player in players:
+                        if players[player]["joined"] != False:
+                            if msg == "":
+                                msg = "Current players online:\n"
+                            msg += f"`{str(datetime.datetime.now()-datetime.datetime.fromtimestamp(players[player]['joined']))[:-7]} - {player}`\n"
+
+                    if msg == "":
+                        msg = "There are currently no players online"
+
+                    discord_connection.send(f"chan,{command[1]}:" + msg)
 
         time.sleep(1)
 

@@ -97,25 +97,9 @@ async def loop():
                 await konsol.send("Something tried to send:\n" + str(e))
 
         # send in specific channel
-        if com.startswith("chan:"):
-            subcoms = com.split(":")
-            if subcoms[1].isnumeric():
-                data = json.loads(":".join(subcoms[2:]))
-                data["Joelias06"] = {"joined": datetime.datetime.now().timestamp() - 30}
-                if len(data) > 0:
-                    print(data)
-                    data = dict(
-                        sorted(data.items(), key=lambda item: item[1]["joined"])
-                    )
-                    print(data)
-                    msg = "Current players online:\n"
-                    for user in data:
-                        if data[user]["joined"] != False:
-                            msg += f"`{str(datetime.datetime.now()-datetime.datetime.fromtimestamp(data[user]['joined']))[:-7]} - {user}`\n"
-                else:
-                    msg = "There are currently no players online"
-
-                await bot.get_channel(int(subcoms[1])).send(msg)
+        if com.startswith("chan,"):
+            data = com[5:].split(":", 1)  # split at first ":" only
+            await bot.get_channel(int(data[0])).send(data[1])
 
         if com.startswith("dc:"):
             if com[3:] == "stop":
@@ -184,6 +168,18 @@ async def get_ip(interaction: discord.Interaction):
 async def online_list(interaction: discord.Interaction):
     bot.get_connection().send(f"ctrl:online,{interaction.channel_id}")
     await interaction.response.send_message(f"Processing...", ephemeral=False)
+
+
+# Status
+@bot.tree.command(
+    name="status",
+    description="get status",
+    guild=discord.Object(GUILD),
+)
+async def get_srv_status(interaction: discord.Interaction):
+    if interaction.user.id in SUPER_USERS:
+        bot.get_connection().send(f"srv:status,{interaction.channel_id}")
+        await interaction.response.send_message(f"Processing...", ephemeral=True)
 
 
 # Restart
