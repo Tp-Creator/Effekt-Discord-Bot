@@ -180,6 +180,10 @@ async def get_srv_status(interaction: discord.Interaction):
     if interaction.user.id in SUPER_USERS:
         bot.get_connection().send(f"srv:status,{interaction.channel_id}")
         await interaction.response.send_message(f"Processing...", ephemeral=True)
+    else:
+        await interaction.response.send_message(
+            f"You do not have permisson to use this command.", ephemeral=True
+        )
 
 
 # Restart
