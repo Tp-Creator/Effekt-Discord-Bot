@@ -174,11 +174,6 @@ print("Online since", started_time)
 time.sleep(2)
 
 
-def foo(bar):
-    print("hello {}".format(bar))
-    return "foo"
-
-
 future_stop = DummyFuture()
 future_start = DummyFuture()
 
@@ -226,9 +221,10 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
 
         # Checking for commands from Discord
         if discord_connection.poll(timeout=0.2):
-            command = discord_connection.recv().lower()
+            command = discord_connection.recv()
             # Commands to server
             if not waiting_stop and command.startswith("mc:"):
+                command = command.lower()
                 if mc_process.poll() == None:
                     server_command(command[3:])
                     if command == "mc:stop":
@@ -249,7 +245,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                     pass
 
             elif command.startswith("srv:"):
-                # match (command[4:]):
+                command = command.lower()
                 if command[4:].startswith("status"):
                     command = command.split(",")
 
@@ -323,6 +319,50 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
 
                     discord_connection.send(f"chan,{command[1]}:" + msg)
 
+            elif (
+                command.startswith("IGC:")
+                and not waiting_stop
+                and mc_process.poll() == None
+            ):
+                # f"IGC:{len(usr_name)},{len(role.name)},{role_color},{usr_name},{role.name},{msg.content}"
+                nameLen, roleLen, roleCol, data = command[4:].split(",", 3)
+                nameLen, roleLen = int(nameLen), int(roleLen)
+                data = data.replace("\\", "\\\\")
+                data = data.replace('"', '\\"')
+                name, role, msgs = (
+                    data[:nameLen],
+                    data[nameLen + 1: nameLen + roleLen + 1],
+                    data[nameLen + roleLen + 2:],
+                )
+                for msg in msgs.split("\n"):
+                    # print(
+                    #     'tellraw @a [{"text": "<'
+                    #     + name
+                    #     + '>", "color": "purple"}, {"text": " '
+                    #     + msg
+                    #     + '"}]'
+                    # )
+                    # tellraw @ a[
+                    #     {
+                    #         "text": "<Joel>",
+                    #         "color": "dark_purple",
+                    #         "hoverEvent": {"action": "show_text", "contents": "test"},
+                    #     },
+                    #     {"text": " hello", "color": "white"},
+                    # ]
+
+                    server_command(
+                        'tellraw @a [{"text": "<'
+                        + name
+                        + '>", "color": "'
+                        + roleCol
+                        + '", "hoverEvent":{"action":"show_text","contents":"'
+                        + role
+                        + '"}}, {"text": " '
+                        + msg
+                        + '", "color":"white"}]'
+                    )
+
         time.sleep(1)
 
         content = mc_log_reader.read()
@@ -339,6 +379,19 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                 "\n\\[\\d\\d:\\d\\d:\\d\\d\\] \\[Server thread/INFO\\]: \\w+ left the game",
                 "\n" + content,
             )
+
+            lines = content.split("\n")
+            chats = []
+            for line in lines:
+                chat = re.fullmatch(
+                    "\\[\\d\\d:\\d\\d:\\d\\d\\] \\[Server thread/INFO\\]: <\\w+> .+",
+                    line,
+                )
+                if chat != None:
+                    chats.append(chat.group(0)[33:])
+
+            if len(chats):
+                discord_connection.send("IGC:" + "\n".join(chats))
 
             for usr in joined:
                 zero_player_timer = -1
@@ -367,8 +420,15 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                     }
 
         content = fake_log_reader.read()
+        # Skickar inte pings som fake mc får
+
+        if content:
+            print(content)
+        content = "\n".join(
+            [line for line in content.split("\n") if not "ping packet" in line]
+        )
         if content != "":
-            # Send messages from Minecraft server output to discord child process
+            # Send messages from Fake Minecraft server output to discord child process
             discord_connection.send("log:" + content)
 
             # If someone tries to connect to the standbyMC we start Minecraft

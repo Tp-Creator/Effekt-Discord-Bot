@@ -16,10 +16,11 @@ print("Public ip:", ip.get())
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN") or "0"
 GUILD = os.getenv("DISCORD_GUILD_ID") or "0"
-CHANNEL = os.getenv("DISCORD_CONSOLE_CHANNEL_ID") or "0"
+KONSOL_ID = os.getenv("DISCORD_CONSOLE_CHANNEL_ID") or "0"
+IN_GAME_CHAT_ID = os.getenv("DISCORD_IN_GAME_CHAT_CHANNEL_ID") or "0"
 SUPER_USERS = json.loads(os.getenv("DISCORD_SUPER_USERS") or "[]")
 
-if "0" in [TOKEN, GUILD, CHANNEL]:
+if "0" in [TOKEN, GUILD, KONSOL_ID, IN_GAME_CHAT_ID]:
     raise EnvironmentError("One or many environment variable(s) missing!")
 
 intents = discord.Intents.default()
@@ -96,12 +97,17 @@ async def loop():
             except Exception as e:
                 await konsol.send("Something tried to send:\n" + str(e))
 
+        if com.startswith("IGC:"):
+            msgs = com[4:].split("\n")
+            for msg in msgs:
+                await bot.get_channel(int(IN_GAME_CHAT_ID)).send("`" + msg + "`")
+
         # send in specific channel
-        if com.startswith("chan,"):
+        elif com.startswith("chan,"):
             data = com[5:].split(":", 1)  # split at first ":" only
             await bot.get_channel(int(data[0])).send(data[1])
 
-        if com.startswith("dc:"):
+        elif com.startswith("dc:"):
             if com[3:] == "stop":
                 await bot.close()
 
@@ -115,7 +121,7 @@ async def on_ready():
         channel
         for channel in bot.get_all_channels()
         if channel.name == "konsol"
-        and int(channel.id) == int(CHANNEL)
+        and int(channel.id) == int(KONSOL_ID)
         and not isinstance(channel, discord.ForumChannel)
         and not isinstance(channel, discord.CategoryChannel)
     ][0]
@@ -131,7 +137,26 @@ async def on_message(msg):
     if msg.author == bot.user:
         return
 
-    if int(msg.channel.id) == int(CHANNEL) and msg.author.id in SUPER_USERS:
+    print(msg.content, msg.author.name, msg.channel.id)
+    if int(msg.channel.id) == int(IN_GAME_CHAT_ID):
+        # print("igc send")
+        # print("user roles:", msg.author.roles)
+        # print("user roles:", msg.author.roles[1].color)
+        # for role in msg.author.roles:
+        #     print("permission:", role.name, role.permissions, role.color)
+
+        for role in msg.author.roles[::-1]:
+            role_color = role.color
+            if role_color != "#000000":
+                break
+        usr_name = msg.author.display_name
+        role = msg.author.roles[-1]
+
+        bot.get_connection().send(
+            f"IGC:{len(usr_name)},{len(role.name)},{role_color},{usr_name},{role.name},{msg.content}"
+        )
+
+    if int(msg.channel.id) == int(KONSOL_ID) and msg.author.id in SUPER_USERS:
         bot.get_connection().send("mc:" + msg.content)
 
     await bot.process_commands(msg)  # Onödig För eventuella icke "/kommandon"
