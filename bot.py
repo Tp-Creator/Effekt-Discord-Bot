@@ -137,7 +137,7 @@ async def on_message(msg):
     if msg.author == bot.user:
         return
 
-    print(msg.content, msg.author.name, msg.channel.id)
+    print(msg.content, msg.author.name, "UserID:", msg.author.id)
     if int(msg.channel.id) == int(IN_GAME_CHAT_ID):
         # print("igc send")
         # print("user roles:", msg.author.roles)
@@ -193,6 +193,19 @@ async def get_ip(interaction: discord.Interaction):
 async def online_list(interaction: discord.Interaction):
     bot.get_connection().send(f"ctrl:online,{interaction.channel_id}")
     await interaction.response.send_message(f"Processing...", ephemeral=False)
+
+
+# List Admins
+@bot.tree.command(
+    name="list-admins",
+    description="Sends a list of all Minecraft admins",
+    guild=discord.Object(GUILD),
+)
+async def admin_list(interaction: discord.Interaction):
+    msg = "**Current admins are:**"
+    for id in SUPER_USERS:
+        msg += f"\n<@{id}>"
+    await interaction.response.send_message(msg, ephemeral=True)
 
 
 # Status
