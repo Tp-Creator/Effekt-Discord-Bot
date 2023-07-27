@@ -146,7 +146,7 @@ async def on_message(msg):
         #     print("permission:", role.name, role.permissions, role.color)
 
         for role in msg.author.roles[::-1]:
-            role_color = role.color
+            role_color = str(role.color)
             if role_color != "#000000":
                 break
         usr_name = msg.author.display_name
