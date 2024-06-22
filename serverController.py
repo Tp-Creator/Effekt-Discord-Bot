@@ -425,7 +425,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                 discord_connection.send("log:" + content)
 
                 # If someone tries to connect to the standbyMC we start Minecraft
-                if "ries to connect to the server" in content:
+                if "ries to connect to the server" in content and waiting_start == False:
                     # mc_process = start()
                     waiting_start = True
                     future_start = executor.submit(start)
