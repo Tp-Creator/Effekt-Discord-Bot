@@ -125,14 +125,14 @@ def start_process(executable: str, dir=None):
 
 # Stops Minecraft and starts standbyMC
 def stop():
-    if mc_process.poll() == None:
+    if mc_process.poll() is None:
         console("Stopping Minecraft...")
         try:
             server_command("stop")
         except (BrokenPipeError, IOError):
             print("we want to kill process now!")
             mc_process.kill()
-        while mc_process.poll() == None:
+        while mc_process.poll() is None:
             pass
     time.sleep(1)
     console("Starting standbyMC")
@@ -145,7 +145,7 @@ def stop():
 def start():
     global zero_player_timer
     zero_player_timer = datetime.datetime.now()
-    if fake_mc_process.poll() == None:
+    if fake_mc_process.poll() is None:
         console("Stopping standbyMC")
         # fake_mc_process.terminate()
         # fake_mc_process.kill()
@@ -153,7 +153,7 @@ def start():
         fake_mc_process.stdin.write(command)
         fake_mc_process.stdin.flush()
 
-        while fake_mc_process.poll() == None:
+        while fake_mc_process.poll() is None:
             pass
         time.sleep(2)
     console("Starting Minecraft...")
@@ -199,7 +199,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                 waiting_start = False
                 mc_process = future_start.result()
 
-            if not waiting_stop and mc_process.poll() == None:
+            if not waiting_stop and mc_process.poll() is None:
                 if zero_player_timer == -1:
                     for player in online_players:
                         if online_players[player]["count"] > 0:
@@ -235,7 +235,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                 # Commands to server
                 if not waiting_stop and command.startswith("mc:"):
                     command = command.lower()
-                    if mc_process.poll() == None:
+                    if mc_process.poll() is None:
                         server_command(command[3:])
                         if command == "mc:stop":
                             # fake_mc_process = stop()
@@ -250,7 +250,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                         future_start = executor.submit(start)
                         time.sleep(2)
 
-                    elif fake_mc_process.poll() == None:
+                    elif fake_mc_process.poll() is None:
                         # fake mc commands goes here
                         pass
 
@@ -260,25 +260,25 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                         command = command.split(",")
 
                         # Header
-                        msg = f"Status:\n"
+                        msg = "Status:\n"
 
                         # MC status
-                        if mc_process.poll() == None:
+                        if mc_process.poll() is None:
                             # 1 or more players online
                             if zero_player_timer == -1:
                                 amount_online = 0
                                 for player in online_players:
                                     if online_players[player]["joined"] != False:
                                         amount_online += 1
-                                msg += f"```Minecraft: {mc_process.poll() == None} - {amount_online} player(s) online\n"
+                                msg += f"```Minecraft: {mc_process.poll() is None} - {amount_online} player(s) online\n"
                             # No players online
                             else:
-                                msg += f"```Minecraft: {mc_process.poll() == None} - {round(mc_standby_timeout - (datetime.datetime.now() - zero_player_timer).total_seconds())}s until standby\n"
+                                msg += f"```Minecraft: {mc_process.poll() is None} - {round(mc_standby_timeout - (datetime.datetime.now() - zero_player_timer).total_seconds())}s until standby\n"
                         else:
-                            msg += f"```Minecraft: {mc_process.poll() == None}\n"
+                            msg += f"```Minecraft: {mc_process.poll() is None}\n"
 
                         # Fake MC status
-                        msg += f"StandbyMC: {fake_mc_process.poll() == None}\n"
+                        msg += f"StandbyMC: {fake_mc_process.poll() is None}\n"
 
                         # When this program started the last time
                         msg += f"\nProgram start: {started_time.strftime('%Y-%m-%d, %H:%M:%S')}```"
@@ -288,16 +288,16 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                     elif command[4:] == "restart":
                         console("Restarting server...")
 
-                        if mc_process.poll() == None:
+                        if mc_process.poll() is None:
                             console("Stopping Minecraft")
                             server_command("stop")
-                            while mc_process.poll() == None:
+                            while mc_process.poll() is None:
                                 pass
 
-                        if fake_mc_process.poll() == None:
+                        if fake_mc_process.poll() is None:
                             console("Stopping standbyMC")
                             fake_mc_process.kill()
-                            while fake_mc_process.poll() == None:
+                            while fake_mc_process.poll() is None:
                                 pass
 
                         console("Disconnecting from Discord")
@@ -333,7 +333,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                 elif (
                     command.startswith("IGC:")
                     and not waiting_stop
-                    and mc_process.poll() == None
+                    and mc_process.poll() is None
                 ):
                     # f"IGC:{len(usr_name)},{len(role.name)},{role_color},{usr_name},{role.name},{msg.content}"
                     nameLen, roleLen, roleCol, data = command[4:].split(",", 3)
@@ -432,16 +432,16 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                     waiting_start = True
                     future_start = executor.submit(start)
         except KeyboardInterrupt or SystemExit:
-            if mc_process.poll() == None:
+            if mc_process.poll() is None:
                 console("Stopping Minecraft")
                 server_command("stop")
-                while mc_process.poll() == None:
+                while mc_process.poll() is None:
                     pass
 
-            if fake_mc_process.poll() == None:
+            if fake_mc_process.poll() is None:
                 console("Stopping standbyMC")
                 fake_mc_process.kill()
-                while fake_mc_process.poll() == None:
+                while fake_mc_process.poll() is None:
                     pass
 
             console("Disconnecting from Discord")
