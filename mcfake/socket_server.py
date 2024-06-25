@@ -137,8 +137,7 @@ class SocketServer:
                 bytearray.append(long)
                 client_socket.sendall(bytearray)
                 self.logger.info(
-                    "[%s:%d] Responded with pong packet." % (
-                        client_ip, addr[1])
+                    "[%s:%d] Responded with pong packet." % (client_ip, addr[1])
                 )
             else:
                 self.logger.warning(
@@ -147,8 +146,7 @@ class SocketServer:
                 )
         except (TypeError, IndexError):
             self.logger.warning(
-                "[%s:%s] Received invalid data (%s)" % (
-                    client_ip, addr[1], data)
+                "[%s:%s] Received invalid data (%s)" % (client_ip, addr[1], data)
             )
             return
 

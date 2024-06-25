@@ -1,2 +1,3 @@
-/.env
-.pyc
+
+server_handler/info.txt
+*.pyc
