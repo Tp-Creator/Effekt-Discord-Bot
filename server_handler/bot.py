@@ -86,7 +86,9 @@ async def loop():
                     while len(msg) > 1950:
                         splitPoint = msg[:1950].rfind("\n")
                         if splitPoint == -1:
-                            splitPoint = 1950
+                            splitPoint = msg[:1950].rfind(" ")
+                            if splitPoint == -1:
+                                splitPoint = 1950
                         await konsol.send(
                             "```" * is_log + msg[:splitPoint] + "```" * is_log
                         )

@@ -17,7 +17,8 @@ import bot
 discord_connection, child_connection = Pipe()
 
 discord_bot = Process(target=bot.startBot, args=(child_connection,))
-discord_bot.start()
+if __name__ == "__main__":
+    discord_bot.start()
 
 
 ### to not get error msgs in vs code
@@ -58,6 +59,8 @@ class LogReader:
         self.path = path
 
     def read(self) -> str:
+        if not os.path.exists(self.path):
+            return ""
         with open(self.path, "r") as log:
             content = log.read()
             if self.previousContent in content:
@@ -88,13 +91,13 @@ def validSizes(args):
 
 sizes = sys.argv[1:] if validSizes(sys.argv[1:]) else ["2048M", "6G"]
 
-minecraft_dir = "/home/ckserver/effekt/mcsrv"
+minecraft_dir = "C:/prog/Effekt-Discord-Bot/mcsrv"                                  #"/home/ckserver/effekt/mcsrv" #!!WARNING: System specific
 minecraft_executable = (
-    f"sudo -u ckserver java -Xms{sizes[0]} -Xmx{sizes[1]} -jar server.jar --nogui"
+    f"sudo -u ckserver java -Xms{sizes[0]} -Xmx{sizes[1]} -jar server.jar --nogui"  #!!WARNING: System specific
 )
 
-fake_dir = "/home/ckserver/effekt/mcfake"
-fake_executable = "sudo -u ckserver /usr/bin/python3 ./start.py"
+fake_dir = "C:/prog/Effekt-Discord-Bot/mcfake"                                      # "/home/ckserver/effekt/mcfake" #!!WARNING: System specific
+fake_executable = "python3 ./start.py" # "sudo -u ckserver /usr/bin/python3 ./start.py"                    #!!WARNING: System specific
 
 
 def server_command(cmd):
@@ -383,7 +386,7 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                         chats.append(chat.group(0)[33:])
 
                 if len(chats):
-                    discord_connection.send("IGC:" + "\n".join(chats))
+                    discord_connection.send("IGC:" + "\n".join(chats).replace("`", "'"))
 
                 for usr in joined:
                     zero_player_timer = -1
@@ -392,11 +395,11 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
                         online_players[username]["count"] += 1
                         online_players[username][
                             "joined"
-                        ] = datetime.datetime.now().timestamp()
+                        ] = datetime.datetime.now().timestamp() # TODO: fix less lazy
                     else:
                         online_players[username] = {
                             "count": 1,
-                            "joined": datetime.datetime.now().timestamp(),
+                            "joined": datetime.datetime.now().timestamp(), # TODO: fix less lazy
                         }
 
                 for usr in left:

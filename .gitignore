@@ -2,3 +2,5 @@
 server_handler/info.txt
 *.pyc
 /.vscode
+/logs
+*.log
