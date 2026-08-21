@@ -1,0 +1,25 @@
+{
+    "ip": "0.0.0.0",
+    "kick_message": [
+        "§aStarting server!",
+        "",
+        "§2This may take a minute",
+        "",
+        "§7(Make sure you're playing on version 1.20.4)"
+    ],
+    "motd": {
+        "1": "§l §3                  §k||§r Effekt §6§lTOGETHER! §3§k||§r",
+		"2": "            §4§l§nPRAISE GOD!§4§l §7§l- §2§lJoin To Start!"
+    },
+    "player_max": 0,
+    "player_online": 0,
+    "port": 25565,
+    "protocol": 2,
+    "samples": [
+        "§2Join to Start!"
+    ],
+    "server_icon": "/home/user/effekt/mcsrv/server-icon.png",
+    "show_hostname_if_available": true,
+    "show_ip_if_hostname_available": true,
+    "version_text": "§4Offline"
+}
